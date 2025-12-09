@@ -1,8 +1,6 @@
 import express from 'express';
 import bodyParser from 'body-parser';
-import dotenv from 'dotenv';
-import { handleIncomingMessage } from './llm_service.js';
-import { sendMessage } from './twilio_service.js';
+import { fetchConfigFromSheet } from './sheet_config.js'; // Import this
 
 dotenv.config();
 
@@ -10,6 +8,20 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(express.static('public')); // Serve Dashboard
+
+// API to let Dashboard know where the Bridge is
+app.get('/api/dashboard-config', async (req, res) => {
+    try {
+        const sheetUrl = process.env.CONFIG_SHEET_URL;
+        if (!sheetUrl) return res.status(500).json({ error: "Missing CONFIG_SHEET_URL env" });
+
+        const config = await fetchConfigFromSheet(sheetUrl);
+        res.json(config);
+    } catch (e) {
+        res.status(500).json({ error: e.toString() });
+    }
+});
 
 // DEBUG: Log every single request hitting the server
 app.use((req, res, next) => {
