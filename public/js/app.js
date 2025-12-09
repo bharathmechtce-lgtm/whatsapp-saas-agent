@@ -165,4 +165,81 @@ document.addEventListener('DOMContentLoaded', async () => {
         reader.readAsDataURL(file);
     }
 
+    // 5. Chat Simulator Logic
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendMessageBtn');
+    const chatWindow = document.getElementById('chatWindow');
+    const clearBtn = document.getElementById('clearChatBtn');
+
+    // Send on Enter
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+    sendBtn.addEventListener('click', sendMessage);
+    clearBtn.addEventListener('click', () => {
+        chatWindow.innerHTML = '<div class="self-start bg-gray-200 text-gray-800 rounded-lg py-2 px-3 max-w-xs text-sm">Memory Cleared. (Reload to fully reset server memory)</div>';
+    });
+
+    async function sendMessage() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+
+        // Add User Message
+        appendMessage(text, 'user');
+        chatInput.value = '';
+
+        // Show Typing
+        const typingId = showTyping();
+
+        try {
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: text,
+                    userId: 'web_demo_plus_client_folder_' + folderInput.value // Use pseudo-ID to isolate context if needed, though folder is global config driven right now
+                })
+            });
+
+            const data = await res.json();
+            removeTyping(typingId);
+
+            if (data.response) {
+                appendMessage(data.response, 'bot');
+            } else {
+                appendMessage("Error: No response.", 'bot');
+            }
+        } catch (e) {
+            removeTyping(typingId);
+            appendMessage("Network Error: " + e.message, 'bot');
+        }
+    }
+
+    function appendMessage(text, sender) {
+        const div = document.createElement('div');
+        div.className = sender === 'user'
+            ? "self-end bg-indigo-600 text-white rounded-lg py-2 px-3 max-w-xs text-sm"
+            : "self-start bg-gray-200 text-gray-800 rounded-lg py-2 px-3 max-w-xs text-sm markdown-body"; // markdown-body class for future md support
+
+        div.innerText = text;
+        chatWindow.appendChild(div);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function showTyping() {
+        const id = 'typing-' + Date.now();
+        const div = document.createElement('div');
+        div.id = id;
+        div.className = "self-start bg-gray-100 text-gray-400 rounded-lg py-2 px-3 text-xs italic";
+        div.innerText = "Thinking...";
+        chatWindow.appendChild(div);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+        return id;
+    }
+
+    function removeTyping(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    }
+
 });

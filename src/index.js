@@ -13,26 +13,6 @@ const port = process.env.PORT || 3000;
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.static('public')); // Serve Dashboard
 
-// API to let Dashboard know where the Bridge is
-app.get('/api/dashboard-config', async (req, res) => {
-    try {
-        const sheetUrl = process.env.CONFIG_SHEET_URL;
-        if (!sheetUrl) return res.status(500).json({ error: "Missing CONFIG_SHEET_URL env" });
-
-        const config = await fetchConfigFromSheet(sheetUrl);
-        res.json(config);
-    } catch (e) {
-        res.status(500).json({ error: e.toString() });
-    }
-});
-
-// DEBUG: Log every single request hitting the server
-app.use((req, res, next) => {
-    console.log(`[INCOMING] ${req.method} ${req.url}`);
-    console.log('Headers:', JSON.stringify(req.headers));
-    next();
-});
-
 // DEBUG: Simple ping to check if server is alive
 app.get('/ping', (req, res) => {
     res.send('PONG! Server is reachable.');
