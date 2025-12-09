@@ -1,6 +1,9 @@
 import express from 'express';
 import bodyParser from 'body-parser';
-import { fetchConfigFromSheet } from './sheet_config.js'; // Import this
+import { fetchConfigFromSheet } from './sheet_config.js';
+import dotenv from 'dotenv';
+import { handleIncomingMessage } from './llm_service.js';
+import { sendMessage } from './twilio_service.js';
 
 dotenv.config();
 
