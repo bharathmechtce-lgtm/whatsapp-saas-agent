@@ -1,150 +1,158 @@
-const SHEET_ID = "1pd1FHHTf_gRt_QtE0yqr8GwWHf8BBf1O4sL1WDZlm-0";
-// Note: We need a way to get the Bridge URL dynamically. 
-// For now, we will ask the user to enter it or fetch it from the backend if possible.
-// But since this is a static file served by Node, we can fetch it from a new /api/config endpoint on our Node server!
-
 document.addEventListener('DOMContentLoaded', async () => {
-    const statusEl = document.getElementById('status');
-    const folderInput = document.getElementById('client_folder_name');
-    const bridgeInput = document.getElementById('context_url');
 
-    // 1. Fetch Environment Config from our Node Backend
-    try {
-        const res = await fetch('/api/dashboard-config');
-        const env = await res.json();
+    // UI Elements
+    const leadGate = document.getElementById('leadGate');
+    const leadForm = document.getElementById('leadForm');
+    const displayLeadName = document.getElementById('displayLeadName');
+    const syncStatus = document.getElementById('syncStatus');
 
-        if (env.context_url) {
-            bridgeInput.value = env.context_url;
-            // Extract Client Folder from URL if present
-            const urlParams = new URLSearchParams(new URL(env.context_url).search);
-            const folder = urlParams.get('folder');
-            if (folder) folderInput.value = folder;
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendMessageBtn');
+    const chatWindow = document.getElementById('chatWindow');
+    const clearBtn = document.getElementById('clearChatBtn');
 
-            statusEl.innerText = "Connected";
-            statusEl.classList.remove("bg-gray-200", "text-gray-600");
-            statusEl.classList.add("bg-green-200", "text-green-800");
-
-            // Load Config from Sheet via Bridge
-            loadConfig(env.context_url);
-        } else {
-            statusEl.innerText = "Missing Config";
-            statusEl.classList.add("bg-red-200", "text-red-800");
-        }
-    } catch (e) {
-        console.error("Failed to connect to backend", e);
-        statusEl.innerText = "Backend Error";
-    }
-
-    // 2. Load Config Function
-    async function loadConfig(bridgeUrl) {
-        // We need the BASE URL of the script (remove query params)
-        const baseUrl = bridgeUrl.split('?')[0];
-
-        try {
-            const res = await fetch(`${baseUrl}?cmd=fetch_config`);
-            const data = await res.json();
-
-            if (data.config) {
-                // Populate Form
-                document.getElementById('model_name').value = data.config.model_name || 'gemini-flash-latest';
-                document.getElementById('target_language').value = data.config.target_language || '';
-                document.getElementById('input_price_per_1m').value = data.config.input_price_per_1m || '';
-                document.getElementById('output_price_per_1m').value = data.config.output_price_per_1m || '';
-
-                if (data.config.client_folder_name) {
-                    folderInput.value = data.config.client_folder_name;
-                }
-            }
-        } catch (e) {
-            console.error("Failed to load sheet config", e);
-            alert("Error loading configuration from Google Sheet.");
-        }
-    }
-
-    // 3. Save Config
-    document.getElementById('configForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const bridgeUrl = bridgeInput.value.split('?')[0];
-
-        const newConfig = {
-            model_name: document.getElementById('model_name').value,
-            target_language: document.getElementById('target_language').value,
-            input_price_per_1m: document.getElementById('input_price_per_1m').value,
-            output_price_per_1m: document.getElementById('output_price_per_1m').value
-        };
-
-        try {
-            // Using navigator.sendBeacon or fetch with 'no-cors' might be needed if CORS is strict, 
-            // BUT Apps Script Web Apps allow CORS if deployed as "Anyone".
-
-            const res = await fetch(bridgeUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Apps Script quirk: use text/plain
-                body: JSON.stringify({
-                    cmd: 'update_config',
-                    config: newConfig
-                })
-            });
-
-            const result = await res.json();
-            if (result.status === 'success') {
-                alert("Configuration Saved!");
-            } else {
-                alert("Error saving: " + JSON.stringify(result));
-            }
-        } catch (e) {
-            console.error(e);
-            alert("Failed to save. Check console.");
-        }
-    });
-
-    // 4. File Upload Logic
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
 
+    // State
+    let BRIDGE_URL = "";
+    let CLIENT_FOLDER = "";
+
+    // 1. Initial Setup
+    await fetchBackendConfig();
+    checkGate();
+
+    // 2. Lead Gate Handling
+    function checkGate() {
+        const savedLead = localStorage.getItem('saas_lead_data');
+        if (savedLead) {
+            const lead = JSON.parse(savedLead);
+            unlockSimulator(lead);
+        } else {
+            leadGate.classList.remove('hidden'); // Ensure visible
+        }
+    }
+
+    leadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const subBtn = leadForm.querySelector('button');
+        const originalText = subBtn.innerHTML;
+        subBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Unlocking...';
+        subBtn.disabled = true;
+
+        const lead = {
+            name: document.getElementById('leadName').value,
+            phone: "+91 " + document.getElementById('leadPhone').value,
+            email: document.getElementById('leadEmail').value,
+            company: document.getElementById('leadCompany').value,
+            tier: "Demo User"
+        };
+
+        try {
+            // Save to Sheet via Bridge
+            if (BRIDGE_URL) {
+                await fetch(BRIDGE_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ cmd: 'save_lead', lead: lead })
+                });
+            }
+
+            // Save Local & Unlock
+            localStorage.setItem('saas_lead_data', JSON.stringify(lead));
+            unlockSimulator(lead);
+
+        } catch (error) {
+            console.error("Lead Save Failed", error);
+            alert("Connection Error. Please try again.");
+            subBtn.innerHTML = originalText;
+            subBtn.disabled = false;
+        }
+    });
+
+    function unlockSimulator(lead) {
+        displayLeadName.innerText = lead.name;
+
+        // Create unique folder name: Demo_Name_Timestamp
+        // Sanitized to be folder-safe
+        const safeName = lead.name.replace(/[^a-zA-Z0-9]/g, '');
+        CLIENT_FOLDER = `Demo_${safeName}_${Date.now()}`;
+        document.getElementById('client_folder_name').value = CLIENT_FOLDER;
+
+        leadGate.style.display = 'none';
+
+        // Initial Greeting
+        setTimeout(() => {
+            appendMessage(`Welcome ${lead.name}! I am ready to help. Upload a file to get started.`, 'bot');
+        }, 800);
+    }
+
+    // 3. Backend Connection
+    async function fetchBackendConfig() {
+        try {
+            syncStatus.className = "fa-solid fa-circle-notch fa-spin text-blue-500";
+            const res = await fetch('/api/dashboard-config');
+            const data = await res.json();
+
+            if (data.context_url) {
+                // The context_url IS the bridge url (without params)
+                BRIDGE_URL = data.context_url.split('?')[0];
+                syncStatus.className = "fa-solid fa-circle-check text-green-500";
+            }
+        } catch (e) {
+            console.error("Config fetch error", e);
+            syncStatus.className = "fa-solid fa-triangle-exclamation text-red-500";
+        }
+    }
+
+    // 4. File Upload Logic (Limit 5MB, 3 Files)
     dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-500'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-indigo-500'));
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-green-500'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-green-500'));
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
-        dropZone.classList.remove('border-indigo-500');
+        dropZone.classList.remove('border-green-500');
         handleFiles(e.dataTransfer.files);
     });
     fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
 
     async function handleFiles(files) {
-        const bridgeUrl = bridgeInput.value.split('?')[0];
-        const folderName = folderInput.value;
+        if (!BRIDGE_URL) { alert("Connecting to server... please wait."); return; }
 
-        if (!folderName) {
-            alert("Client Folder Name is missing!");
+        // Limit Check
+        const currentFiles = document.getElementById('uploadList').children.length;
+        if (currentFiles + files.length > 3) {
+            alert("Demo Limit: Max 3 files allowed.");
             return;
         }
 
         for (const file of files) {
-            uploadFile(file, bridgeUrl, folderName);
+            if (file.size > 5 * 1024 * 1024) {
+                alert(`Skipped ${file.name}: Too large (>5MB)`);
+                continue;
+            }
+            uploadFile(file);
         }
     }
 
-    function uploadFile(file, bridgeUrl, folderName) {
+    function uploadFile(file) {
         const reader = new FileReader();
 
-        // Add item to UI
         const item = document.createElement('div');
-        item.className = "flex items-center justify-between p-3 bg-white border rounded shadow-sm";
-        item.innerHTML = `<span>${file.name}</span> <span class="text-blue-600 text-sm"><i class="fa-solid fa-spinner fa-spin"></i> Uploading...</span>`;
+        item.className = "flex items-center justify-between p-2 bg-white border rounded text-xs";
+        item.innerHTML = `<span class="truncate w-32">${file.name}</span> <span class="text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i></span>`;
         document.getElementById('uploadList').appendChild(item);
 
         reader.onload = async function () {
             const base64 = reader.result.split(',')[1];
-
             try {
-                const res = await fetch(bridgeUrl, {
+                const res = await fetch(BRIDGE_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({
                         cmd: 'upload_file',
-                        folder: folderName,
+                        folder: CLIENT_FOLDER, // Upload to unique lead folder
                         filename: file.name,
                         mimeType: file.type,
                         base64: base64
@@ -153,43 +161,52 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const result = await res.json();
                 if (result.status === 'success') {
-                    item.innerHTML = `<span>${file.name}</span> <span class="text-green-600 text-sm"><i class="fa-solid fa-check"></i> Done</span>`;
+                    item.innerHTML = `<span class="truncate w-32">${file.name}</span> <span class="text-green-600"><i class="fa-solid fa-check"></i></span>`;
+
+                    // Verify Context Update:
+                    // Since the bot backend reads from config.client_folder_name, 
+                    // AND we haven't updated the global config sheet (we don't want to for demo users),
+                    // We need to pass the "folder" override in the Chat API call explicitly.
+
                 } else {
-                    item.innerHTML = `<span>${file.name}</span> <span class="text-red-600 text-sm">Error: ${result.error}</span>`;
+                    item.innerHTML = `<span class="truncate w-32">${file.name}</span> <span class="text-red-500">Error</span>`;
                 }
             } catch (e) {
-                item.innerHTML = `<span>${file.name}</span> <span class="text-red-600 text-sm">Network Error</span>`;
+                item.innerHTML = `<span class="truncate w-32">${file.name}</span> <span class="text-red-500">Net Err</span>`;
             }
         };
-
         reader.readAsDataURL(file);
     }
 
-    // 5. Chat Simulator Logic
-    const chatInput = document.getElementById('chatInput');
-    const sendBtn = document.getElementById('sendMessageBtn');
-    const chatWindow = document.getElementById('chatWindow');
-    const clearBtn = document.getElementById('clearChatBtn');
-
-    // Send on Enter
-    chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
-    });
+    // 5. Chat Logic
+    chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
     sendBtn.addEventListener('click', sendMessage);
     clearBtn.addEventListener('click', () => {
-        chatWindow.innerHTML = '<div class="self-start bg-gray-200 text-gray-800 rounded-lg py-2 px-3 max-w-xs text-sm">Memory Cleared. (Reload to fully reset server memory)</div>';
+        chatWindow.innerHTML = '';
+        appendMessage("Chat cleared.", 'bot');
     });
 
     async function sendMessage() {
         const text = chatInput.value.trim();
         if (!text) return;
 
-        // Add User Message
         appendMessage(text, 'user');
         chatInput.value = '';
 
-        // Show Typing
         const typingId = showTyping();
+        const modelTier = document.getElementById('model_name').value;
+
+        // Construct a User ID that CARRIES the folder info
+        // The backend `llm_service.js` doesn't natively accept folder override in arguments currently, 
+        // BUT it loads config from sheet.
+        // TRICK: We will pass a special "Session ID" or modify the backend to accept folder override.
+        // Wait, looking at handleIncomingMessage, it reads sheetUrl -> Config -> client_folder_name.
+
+        // PROBLEM: The backend will try to read 'client_folder_name' from the GLOBAL Sheet.
+        // Demo users have their OWN unique folders (CLIENT_FOLDER).
+        // SOLVED: We need to update the backend `/api/chat` to allow passing `folderName` override.
+        // I will assume we updated index.js to handle this, or I can encode it in the UserID if I'm lazy.
+        // BETTER: Let's pass it in the body and update index.js next.
 
         try {
             const res = await fetch('/api/chat', {
@@ -197,31 +214,45 @@ document.addEventListener('DOMContentLoaded', async () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: text,
-                    userId: 'web_demo_plus_client_folder_' + folderInput.value // Use pseudo-ID to isolate context if needed, though folder is global config driven right now
+                    userId: "demo_" + CLIENT_FOLDER,
+                    // Passing Extra Context Params
+                    folderOverride: CLIENT_FOLDER,
+                    modelOverride: modelTier
                 })
             });
 
             const data = await res.json();
             removeTyping(typingId);
 
-            if (data.response) {
-                appendMessage(data.response, 'bot');
-            } else {
-                appendMessage("Error: No response.", 'bot');
-            }
+            if (data.response) appendMessage(data.response, 'bot');
+            else appendMessage("I didn't get that.", 'bot');
+
         } catch (e) {
             removeTyping(typingId);
-            appendMessage("Network Error: " + e.message, 'bot');
+            appendMessage("Connection failed.", 'bot');
         }
     }
 
     function appendMessage(text, sender) {
         const div = document.createElement('div');
-        div.className = sender === 'user'
-            ? "self-end bg-indigo-600 text-white rounded-lg py-2 px-3 max-w-xs text-sm"
-            : "self-start bg-gray-200 text-gray-800 rounded-lg py-2 px-3 max-w-xs text-sm markdown-body"; // markdown-body class for future md support
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        div.innerText = text;
+        if (sender === 'user') {
+            div.className = "flex justify-end";
+            div.innerHTML = `
+                <div class="chat-bubble-user p-2 px-3 rounded-lg shadow-sm max-w-sm text-sm text-gray-800 relative">
+                    ${text}
+                    <div class="text-[10px] text-gray-500 text-right mt-1 ml-4">${time} <i class="fa-solid fa-check-double text-blue-500"></i></div>
+                </div>`;
+        } else {
+            div.className = "flex justify-start";
+            div.innerHTML = `
+                <div class="chat-bubble-bot p-2 px-3 rounded-lg shadow-sm max-w-sm text-sm text-gray-800 relative">
+                    ${text}
+                    <div class="text-[10px] text-gray-400 text-right mt-1 ml-4">${time}</div>
+                </div>`;
+        }
+
         chatWindow.appendChild(div);
         chatWindow.scrollTop = chatWindow.scrollHeight;
     }
@@ -230,8 +261,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const id = 'typing-' + Date.now();
         const div = document.createElement('div');
         div.id = id;
-        div.className = "self-start bg-gray-100 text-gray-400 rounded-lg py-2 px-3 text-xs italic";
-        div.innerText = "Thinking...";
+        div.className = "flex justify-start";
+        div.innerHTML = `
+            <div class="bg-white p-2 rounded-lg shadow-sm text-xs text-gray-500 italic">
+                typing...
+            </div>`;
         chatWindow.appendChild(div);
         chatWindow.scrollTop = chatWindow.scrollHeight;
         return id;
