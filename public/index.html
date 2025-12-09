@@ -24,13 +24,189 @@
         .chat-bubble-bot {
             background-color: #ffffff;
         }
+    </style>
+</head>
 
-        </div>< !-- Green Header Strip --><div class="wa-green h-32 w-full absolute top-0 z-0"></div>< !-- Main Container --><div class="relative z-10 container mx-auto px-4 py-8 h-screen flex flex-col"><div class="flex items-center text-white mb-5 ml-4"><i class="fa-brands fa-whatsapp text-3xl mr-3"></i><h1 class="text-xl font-semibold tracking-wide">WhatsApp Chat Playground</h1></div><div class="bg-white rounded shadow-lg flex-1 flex overflow-hidden">< !-- Left Sidebar (Setup) --><div class="w-1/3 border-r bg-white flex flex-col">< !-- Profile Header --><div class="bg-gray-100 p-4 border-b flex items-center justify-between"><div class="flex items-center"><div class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-500"><i class="fa-solid fa-user"></i></div><div class="ml-3"><p class="text-sm font-semibold text-gray-800" id="displayLeadName">Guest User</p><p class="text-xs text-gray-500" id="connectionStatusText">Configuring...</p></div></div><div class="flex space-x-3 text-gray-500"><i class="fa-solid fa-circle-notch" id="syncStatus"></i></div></div>< !-- Config Scroll Area --><div class="flex-1 overflow-y-auto p-4 space-y-6">< !-- Brain Power --><div><label class="text-green-700 text-xs font-bold uppercase mb-2 block">Brain Power</label><select id="model_name"
-        class="w-full p-2 border rounded text-sm bg-gray-50 focus:ring-1 focus:ring-green-500"><option value="gemini-flash-latest">⚡ Basic (Fastest)</option><option value="gemini-pro">🧠 Standard (Smarter)</option><option value="gemini-1.5-pro-latest">🚀 Advanced (Max Reasoning)</option></select></div>< !-- Knowledge Base Upload --><div><label class="text-green-700 text-xs font-bold uppercase mb-2 block">Knowledge Base</label><div id="dropZone"
-        class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-500 transition cursor-pointer bg-gray-50 group"><i class="fa-solid fa-cloud-arrow-up text-3xl text-gray-400 group-hover:text-green-500 mb-2 transition"></i><p class="text-sm text-gray-600">Drag files here</p><p class="text-xs text-gray-400 mt-1">PDF,
-        TXT,
-        CSV (Max 5MB)</p><input type="file" id="fileInput" class="hidden" multiple accept=".txt,.json,.csv,.pdf"></div><div id="uploadList" class="mt-3 space-y-2">< !-- Files appear here --></div></div>< !-- Hidden Configs (Auto-managed) --><input type="hidden" id="target_language" value="English"><input type="hidden" id="client_folder_name"><input type="hidden" id="context_url"><div class="text-xs text-gray-400 border-t pt-4"><p><i class="fa-regular fa-clock"></i>Uploaded files are auto-deleted after 1 hour.</p></div></div></div>< !-- Right Chat Area --><div class="w-2/3 flex flex-col wa-bg relative">< !-- Chat Header --><div class="bg-gray-100 p-3 border-b flex items-center shadow-sm z-20"><div class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white"><i class="fa-solid fa-robot"></i></div><div class="ml-3"><p class="text-sm font-semibold text-gray-800">Support Bot</p><p class="text-xs text-gray-500">Business Account</p></div></div>< !-- Messages Area --><div id="chatWindow" class="flex-1 overflow-y-auto p-4 space-y-3 z-10"><div class="flex justify-center my-4"><span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded shadow-sm"><i class="fa-solid fa-lock text-[10px] mr-1"></i>Messages are end-to-end encrypted. </span></div>< !-- Bot Welcome --><div class="flex justify-start"><div class="chat-bubble-bot p-2 px-3 rounded-lg shadow-sm max-w-sm text-sm text-gray-800 relative">Hello ! 👋 Upload your business documents on the left,
-        and I will answer questions based on them. <div class="text-[10px] text-gray-400 text-right mt-1">10:00 AM</div></div></div></div>< !-- Input Footer --><div class="bg-gray-100 p-3 border-t flex items-center z-20"><button class="text-gray-500 hover:text-gray-700 mx-2 text-xl"><i class="fa-regular fa-face-smile"></i></button><button class="text-gray-500 hover:text-gray-700 mx-2 text-xl" id="clearChatBtn"
-        title="Clear Chat"><i class="fa-solid fa-trash-can"></i></button><input type="text" id="chatInput"
-        class="flex-1 bg-white rounded-lg border-0 py-2 px-4 focus:ring-0 text-sm shadow-sm mx-2"
-        placeholder="Type a message"><button id="sendMessageBtn" class="text-gray-500 hover:text-green-600 mx-2 text-xl"><i class="fa-solid fa-paper-plane"></i></button></div></div></div></div><script src="/js/app.js"></script></body></html>
+<body class="bg-gray-100 min-h-screen font-sans flex flex-col overflow-hidden">
+
+    <!-- Lead Gate Modal -->
+    <div id="leadGate"
+        class="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-lg shadow-2xl p-5 max-w-md w-full mx-4">
+            <div class="text-center mb-4">
+                <div class="bg-green-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fa-brands fa-whatsapp text-2xl text-green-600"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-800">Start Your Demo</h2>
+                <p class="text-gray-600 text-xs mt-1">Experience the power of AI on WhatsApp. Enter your details to
+                    unlock.</p>
+            </div>
+
+            <form id="leadForm" class="space-y-2">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase">First Name</label>
+                    <input type="text" id="leadName" required
+                        class="w-full border-b border-gray-300 py-1 text-sm focus:outline-none focus:border-green-600 transition"
+                        placeholder="John Doe">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase">Phone Number</label>
+                    <div class="flex">
+                        <span
+                            class="inline-flex items-center px-2 border-b border-gray-300 bg-gray-50 text-gray-500 text-sm">+91</span>
+                        <input type="tel" id="leadPhone" required
+                            class="w-full border-b border-gray-300 py-1 text-sm focus:outline-none focus:border-green-600 transition"
+                            placeholder="9876543210">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase">Email Address</label>
+                    <input type="email" id="leadEmail" required
+                        class="w-full border-b border-gray-300 py-1 text-sm focus:outline-none focus:border-green-600 transition"
+                        placeholder="john@company.com">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase">Company Name</label>
+                    <input type="text" id="leadCompany" required
+                        class="w-full border-b border-gray-300 py-1 text-sm focus:outline-none focus:border-green-600 transition"
+                        placeholder="Acme Inc.">
+                </div>
+
+                <button type="submit"
+                    class="w-full wa-green text-white font-bold py-2 rounded-md hover:opacity-90 transition shadow-lg mt-4 text-sm">
+                    Unlock Simulator <i class="fa-solid fa-lock-open ml-2"></i>
+                </button>
+            </form>
+            <p class="text-[10px] text-center text-gray-400 mt-3"><i class="fa-solid fa-shield-halved mr-1"></i> Data is
+                secure & temporary.</p>
+        </div>
+    </div>
+
+    <!-- Green Header Strip -->
+    <div class="wa-green h-32 w-full absolute top-0 z-0"></div>
+
+    <!-- Main Container -->
+    <div class="relative z-10 container mx-auto px-4 py-8 h-screen flex flex-col">
+
+        <div class="flex items-center text-white mb-5 ml-4">
+            <i class="fa-brands fa-whatsapp text-3xl mr-3"></i>
+            <h1 class="text-xl font-semibold tracking-wide">WhatsApp Chat Playground</h1>
+        </div>
+
+        <div class="bg-white rounded shadow-lg flex-1 flex overflow-hidden">
+
+            <!-- Left Sidebar (Setup) -->
+            <div class="w-1/3 border-r bg-white flex flex-col">
+                <!-- Profile Header -->
+                <div class="bg-gray-100 p-4 border-b flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-500">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-semibold text-gray-800" id="displayLeadName">Guest User</p>
+                            <p class="text-xs text-gray-500" id="connectionStatusText">Configuring...</p>
+                        </div>
+                    </div>
+                    <div class="flex space-x-3 text-gray-500">
+                        <i class="fa-solid fa-circle-notch" id="syncStatus"></i>
+                    </div>
+                </div>
+
+                <!-- Config Scroll Area -->
+                <div class="flex-1 overflow-y-auto p-4 space-y-6">
+
+                    <!-- Brain Power -->
+                    <div>
+                        <label class="text-green-700 text-xs font-bold uppercase mb-2 block">Brain Power</label>
+                        <select id="model_name"
+                            class="w-full p-2 border rounded text-sm bg-gray-50 focus:ring-1 focus:ring-green-500">
+                            <option value="gemini-flash-latest">⚡ Basic (Fastest)</option>
+                            <option value="gemini-pro">🧠 Standard (Smarter)</option>
+                            <option value="gemini-1.5-pro-latest">🚀 Advanced (Max Reasoning)</option>
+                        </select>
+                    </div>
+
+                    <!-- Knowledge Base Upload -->
+                    <div>
+                        <label class="text-green-700 text-xs font-bold uppercase mb-2 block">Knowledge Base</label>
+                        <div id="dropZone"
+                            class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-500 transition cursor-pointer bg-gray-50 group">
+                            <i
+                                class="fa-solid fa-cloud-arrow-up text-3xl text-gray-400 group-hover:text-green-500 mb-2 transition"></i>
+                            <p class="text-sm text-gray-600">Drag files here</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, TXT, CSV (Max 5MB)</p>
+                            <input type="file" id="fileInput" class="hidden" multiple accept=".txt,.json,.csv,.pdf">
+                        </div>
+                        <div id="uploadList" class="mt-3 space-y-2">
+                            <!-- Files appear here -->
+                        </div>
+                    </div>
+
+                    <!-- Hidden Configs (Auto-managed) -->
+                    <input type="hidden" id="target_language" value="English">
+                    <input type="hidden" id="client_folder_name">
+                    <input type="hidden" id="context_url">
+
+                    <div class="text-xs text-gray-400 border-t pt-4">
+                        <p><i class="fa-regular fa-clock"></i> Uploaded files are auto-deleted after 1 hour.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Chat Area -->
+            <div class="w-2/3 flex flex-col wa-bg relative">
+
+                <!-- Chat Header -->
+                <div class="bg-gray-100 p-3 border-b flex items-center shadow-sm z-20">
+                    <div class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-semibold text-gray-800">Support Bot</p>
+                        <p class="text-xs text-gray-500">Business Account</p>
+                    </div>
+                </div>
+
+                <!-- Messages Area -->
+                <div id="chatWindow" class="flex-1 overflow-y-auto p-4 space-y-3 z-10">
+                    <div class="flex justify-center my-4">
+                        <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded shadow-sm">
+                            <i class="fa-solid fa-lock text-[10px] mr-1"></i> Messages are end-to-end encrypted.
+                        </span>
+                    </div>
+
+                    <!-- Bot Welcome -->
+                    <div class="flex justify-start">
+                        <div
+                            class="chat-bubble-bot p-2 px-3 rounded-lg shadow-sm max-w-sm text-sm text-gray-800 relative">
+                            Hello! 👋 Upload your business documents on the left, and I will answer questions based on
+                            them.
+                            <div class="text-[10px] text-gray-400 text-right mt-1">10:00 AM</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Footer -->
+                <div class="bg-gray-100 p-3 border-t flex items-center z-20">
+                    <button class="text-gray-500 hover:text-gray-700 mx-2 text-xl"><i
+                            class="fa-regular fa-face-smile"></i></button>
+                    <button class="text-gray-500 hover:text-gray-700 mx-2 text-xl" id="clearChatBtn"
+                        title="Clear Chat"><i class="fa-solid fa-trash-can"></i></button>
+
+                    <input type="text" id="chatInput"
+                        class="flex-1 bg-white rounded-lg border-0 py-2 px-4 focus:ring-0 text-sm shadow-sm mx-2"
+                        placeholder="Type a message">
+
+                    <button id="sendMessageBtn" class="text-gray-500 hover:text-green-600 mx-2 text-xl">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <script src="/js/app.js"></script>
+</body>
+
+</html>
