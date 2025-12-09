@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const leadForm = document.getElementById('leadForm');
     const displayLeadName = document.getElementById('displayLeadName');
     const syncStatus = document.getElementById('syncStatus');
+    const connectionStatusText = document.getElementById('connectionStatusText');
 
     const chatInput = document.getElementById('chatInput');
     const sendBtn = document.getElementById('sendMessageBtn');
@@ -29,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const lead = JSON.parse(savedLead);
             unlockSimulator(lead);
         } else {
-            leadGate.classList.remove('hidden'); // Ensure visible
+            leadGate.style.display = 'flex'; // Ensure visible flex
         }
     }
 
@@ -50,9 +51,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         try {
-            // Save to Sheet via Bridge (Fire and Forget logic, don't block user)
+            // Save to Sheet via Bridge (Fire and Forget)
             if (BRIDGE_URL) {
-                // We await to try and get 'success', but if it fails, we catch and proceed
                 const res = await fetch(BRIDGE_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -60,8 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
         } catch (error) {
-            console.warn("Lead Save Skipped/Failed (Offline Mode):", error);
-            // We do NOT stop the user. We let them in.
+            console.warn("Lead Save Skipped/Failed:", error);
         }
 
         // Save Local & Unlock ALWAYS
@@ -73,7 +72,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         displayLeadName.innerText = lead.name;
 
         // Create unique folder name: Demo_Name_Timestamp
-        // Sanitized to be folder-safe
         const safeName = lead.name.replace(/[^a-zA-Z0-9]/g, '');
         CLIENT_FOLDER = `Demo_${safeName}_${Date.now()}`;
         document.getElementById('client_folder_name').value = CLIENT_FOLDER;
@@ -84,6 +82,97 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(() => {
             appendMessage(`Welcome ${lead.name}! I am ready to help. Upload a file to get started.`, 'bot');
         }, 800);
+    }
+
+    // 3. Backend Connection
+    async function fetchBackendConfig() {
+        try {
+            syncStatus.className = "fa-solid fa-circle-notch fa-spin text-blue-500";
+            connectionStatusText.innerText = "Connecting...";
+            connectionStatusText.className = "text-xs text-blue-500";
+
+            const res = await fetch('/api/dashboard-config');
+            const data = await res.json();
+
+            if (data.context_url) {
+                BRIDGE_URL = data.context_url.split('?')[0];
+                syncStatus.className = "fa-solid fa-circle-check text-green-500";
+                connectionStatusText.innerText = "Brain Connected";
+                connectionStatusText.className = "text-xs text-green-600 font-medium";
+            }
+        } catch (e) {
+            console.error("Config fetch error", e);
+            syncStatus.className = "fa-solid fa-triangle-exclamation text-red-500";
+            connectionStatusText.innerText = "Connection Failed";
+            connectionStatusText.className = "text-xs text-red-500 font-bold";
+        }
+    }
+
+    // 4. File Upload Logic (Limit 5MB, 3 Files)
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-green-500'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-green-500'));
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-green-500');
+        handleFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    async function handleFiles(files) {
+        if (!BRIDGE_URL) { alert("Connecting to server... please wait."); return; }
+
+        // Limit Check
+        const currentFiles = document.getElementById('uploadList').children.length;
+        if (currentFiles + files.length > 3) {
+            alert("Demo Limit: Max 3 files allowed.");
+            return;
+        }
+
+        for (const file of files) {
+            if (file.size > 5 * 1024 * 1024) {
+                alert(`Skipped ${file.name}: Too large (>5MB)`);
+                continue;
+            }
+            uploadFile(file);
+        }
+    }
+
+    function uploadFile(file) {
+        const reader = new FileReader();
+
+        const item = document.createElement('div');
+        item.className = "flex items-center justify-between p-2 bg-white border rounded text-xs";
+        item.innerHTML = `<span class="truncate w-32">${file.name}</span> <span class="text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i></span>`;
+        document.getElementById('uploadList').appendChild(item);
+
+        reader.onload = async function () {
+            const base64 = reader.result.split(',')[1];
+            try {
+                const res = await fetch(BRIDGE_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        cmd: 'upload_file',
+                        folder: CLIENT_FOLDER,
+                        filename: file.name,
+                        mimeType: file.type,
+                        base64: base64
+                    })
+                });
+
+                const result = await res.json();
+                if (result.status === 'success') {
+                    item.innerHTML = `<span class="truncate w-32">${file.name}</span> <span class="text-green-600"><i class="fa-solid fa-check"></i></span>`;
+                    appendMessage(`📂 I have read <b>${file.name}</b>. You can now ask me questions about it.`, 'bot');
+                } else {
+                    item.innerHTML = `<span class="truncate w-32">${file.name}</span> <span class="text-red-500">Error</span>`;
+                }
+            } catch (e) {
+                item.innerHTML = `<span class="truncate w-32">${file.name}</span> <span class="text-red-500">Net Err</span>`;
+            }
+        };
+        reader.readAsDataURL(file);
     }
 
     // 5. Chat Logic
@@ -104,18 +193,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const typingId = showTyping();
         const modelTier = document.getElementById('model_name').value;
 
-        // Construct a User ID that CARRIES the folder info
-        // The backend `llm_service.js` doesn't natively accept folder override in arguments currently, 
-        // BUT it loads config from sheet.
-        // TRICK: We will pass a special "Session ID" or modify the backend to accept folder override.
-        // Wait, looking at handleIncomingMessage, it reads sheetUrl -> Config -> client_folder_name.
-
-        // PROBLEM: The backend will try to read 'client_folder_name' from the GLOBAL Sheet.
-        // Demo users have their OWN unique folders (CLIENT_FOLDER).
-        // SOLVED: We need to update the backend `/api/chat` to allow passing `folderName` override.
-        // I will assume we updated index.js to handle this, or I can encode it in the UserID if I'm lazy.
-        // BETTER: Let's pass it in the body and update index.js next.
-
         try {
             const res = await fetch('/api/chat', {
                 method: 'POST',
@@ -123,7 +200,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify({
                     message: text,
                     userId: "demo_" + CLIENT_FOLDER,
-                    // Passing Extra Context Params
                     folderOverride: CLIENT_FOLDER,
                     modelOverride: modelTier
                 })
