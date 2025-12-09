@@ -241,13 +241,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             div.className = "flex justify-start";
             div.innerHTML = `
                 <div class="chat-bubble-bot p-2 px-3 rounded-lg shadow-sm max-w-sm text-sm text-gray-800 relative">
-                    ${text}
+                    ${formatMessage(text)}
                     <div class="text-[10px] text-gray-400 text-right mt-1 ml-4">${time}</div>
                 </div>`;
         }
 
         chatWindow.appendChild(div);
         chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function formatMessage(text) {
+        if (!text) return "";
+        // 1. Clean escapes: "25.2\%" -> "25.2%"
+        let clean = text.replace(/\\/g, '');
+
+        // 2. Bold: **text** -> <b>text</b>
+        clean = clean.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+
+        // 3. Italic: *text* -> <i>text</i>
+        clean = clean.replace(/\*([^\*]+)\*/g, '<i>$1</i>');
+
+        // 4. Line breaks to <br>
+        clean = clean.replace(/\n/g, '<br>');
+
+        return clean;
     }
 
     function showTyping() {
