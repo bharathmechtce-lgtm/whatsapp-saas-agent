@@ -1,119 +1,114 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createLLMAdapter } from './llm_factory.js';
+import { fetchConfigFromSheet } from './sheet_config.js';
+import { calculateEstimatedCost } from './pricing_calculator.js';
 import dotenv from 'dotenv';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 dotenv.config();
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+// In-memory history storage
+const chatHistory = new Map();
+const HISTORY_TIME_LIMIT_MS = 60 * 60 * 1000; // 1 hour
+const HISTORY_COUNT_LIMIT = 20;
 
-// Helper to get __dirname in ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Function to read all files in the data directory
-const getKnowledgeBaseContext = () => {
-  const dataDir = path.join(__dirname, '../data');
-  let context = "";
-
+// Helper to fetch context (Handles Raw Text or JSON from Drive Bridge)
+const fetchContextFromUrl = async (url) => {
+  if (!url) return "";
   try {
-    if (fs.existsSync(dataDir)) {
-      const files = fs.readdirSync(dataDir);
-      files.forEach(file => {
-        const filePath = path.join(dataDir, file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-        context += `\n--- Source: ${file} ---\n${content}\n`;
-      });
+    console.log(`Fetching context from: ${url}`);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Context fetch failed: ${res.statusText}`);
+
+    const contentType = res.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const json = await res.json();
+      return json.content || "Error: No content in Drive response.";
     } else {
-      console.warn("Data directory not found:", dataDir);
+      return await res.text();
     }
-  } catch (error) {
-    console.error("Error reading knowledge base:", error);
+  } catch (e) {
+    console.error("Error fetching context:", e);
+    return "Error loading context.";
   }
-  return context;
 };
 
-// In-memory history storage: { userId: [ { role, parts: [{ text }], timestamp } ] }
-const chatHistory = new Map();
+export const handleIncomingMessage = async (userQuery, userId, sheetUrl) => {
+  // 1. Fetch Configuration (The Brain Control)
+  if (!sheetUrl) {
+    console.error("No SHEET_URL provided!");
+    return "System Error: Configuration missing.";
+  }
 
-const HISTORY_TIME_LIMIT_MS = 60 * 60 * 1000; // 1 hour
-const HISTORY_COUNT_LIMIT = 20; // 10 user + 10 model messages
+  const config = await fetchConfigFromSheet(sheetUrl);
+  if (!config) {
+    return "System Error: Failed to load configuration.";
+  }
 
-export const handleIncomingMessage = async (userQuery, userId) => {
-  const context = getKnowledgeBaseContext();
+  // 2. Fetch Knowledge Base (The Memory)
+  let contextUrl = config.context_url;
 
+  // Auto-append folder name if specified in sheet
+  if (config.client_folder_name) {
+    const separator = contextUrl.includes('?') ? '&' : '?';
+    contextUrl = `${contextUrl}${separator}folder=${encodeURIComponent(config.client_folder_name)}`;
+    console.log(`[Context] Targeting Folder: ${config.client_folder_name}`);
+  }
+
+  const contextContent = await fetchContextFromUrl(contextUrl);
+
+  // 3. Calculate "Taximeter" Cost (The Wallet)
+  // We combine System Prompt Context + History (Approx) + User Query
+  const fullInputForCost = contextContent + userQuery;
+  const costEstimate = calculateEstimatedCost(fullInputForCost, config);
+
+  console.log("------------------------------------------------");
+  console.log(`[TAXIMETER] Client: ${userId}`);
+  console.log(`[TAXIMETER] Model: ${config.model_name}`);
+  console.log(`[TAXIMETER] Input Price: $${config.input_price_per_1m}/1M`);
+  console.log(`[TAXIMETER] Est. Cost: $${costEstimate.totalCost}`);
+  console.log("------------------------------------------------");
+
+  // 4. Prepare System Instruction
+  const targetLanguage = config.target_language || "English";
   const systemInstruction = `
-    You are a helpful and friendly WhatsApp assistant for "Tumble Dry", a laundry and dry cleaning service.
+    You are a helpful assistant.
+    You MUST answer in ${targetLanguage}.
     
-    Your goal is to answer customer questions about services and pricing using the provided context.
-    
-    **Context (Knowledge Base):**
-    ${context}
+    **Context:**
+    ${contextContent}
     
     **Instructions:**
-    1.  **Understand Hinglish & Typos:** Users often speak in "Hinglish" (Hindi + English) and make typos.
-        *   Example: "jatti" -> "Jutti" (Shoes).
-        *   Example: "dhaam" -> "Daam" (Price).
-        *   Example: "kapde" -> Clothes.
-    2.  **Be Smart:** If a user asks about an item that isn't exactly listed, try to match it to the closest category (e.g., "Jutti" -> "Shoe Laundry", "Lehenga" -> "Womens Wear").
-    3.  **Be Concise:** Keep answers short and easy to read on WhatsApp. Use emojis.
-    4.  **Polite Refusal:** If you are 100% sure you don't have the info, politely say so, but try to be helpful first.
-  `;
+    1. Answer based on the context.
+    2. Be concise (approx 50 words).
+    3. Be friendly.
+    `;
 
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
-    systemInstruction: systemInstruction
-  });
-
-  // 1. Retrieve and Prune History
+  // 5. Manage History
   let history = chatHistory.get(userId) || [];
   const now = Date.now();
   const lastMsg = history[history.length - 1];
-
-  // Check if the session is active (last message was within 1 hour)
   const isSessionActive = lastMsg && (now - lastMsg.timestamp < HISTORY_TIME_LIMIT_MS);
 
   if (isSessionActive) {
-    // Active Session: Keep last 1 hour, capped at 20 messages
     history = history.filter(msg => (now - msg.timestamp) < HISTORY_TIME_LIMIT_MS);
-    if (history.length > HISTORY_COUNT_LIMIT) {
-      history = history.slice(history.length - HISTORY_COUNT_LIMIT);
-    }
+    if (history.length > HISTORY_COUNT_LIMIT) history = history.slice(history.length - HISTORY_COUNT_LIMIT);
   } else {
-    // Stale Session: Keep only the last 5 messages as context
     const FALLBACK_COUNT_LIMIT = 5;
-    if (history.length > FALLBACK_COUNT_LIMIT) {
-      history = history.slice(history.length - FALLBACK_COUNT_LIMIT);
-    }
+    if (history.length > FALLBACK_COUNT_LIMIT) history = history.slice(history.length - FALLBACK_COUNT_LIMIT);
   }
 
-  // 2. Start Chat with History
-  // Note: Gemini API expects history without timestamps, so we map it.
-  const chat = model.startChat({
-    history: history.map(h => ({ role: h.role, parts: h.parts }))
-  });
+  // 6. Execute (The Factory)
+  try {
+    const llmAdapter = createLLMAdapter(config);
+    const responseText = await llmAdapter.sendMessage(history, userQuery, systemInstruction);
 
-  // 3. Send Message
-  const result = await chat.sendMessage(userQuery);
-  const response = await result.response;
-  const text = response.text();
+    // Update History
+    history.push({ role: "user", parts: [{ text: userQuery }], timestamp: now });
+    history.push({ role: "model", parts: [{ text: responseText }], timestamp: Date.now() });
+    chatHistory.set(userId, history);
 
-  // 4. Update History
-  // Add user message
-  history.push({
-    role: "user",
-    parts: [{ text: userQuery }],
-    timestamp: now
-  });
-  // Add model response
-  history.push({
-    role: "model",
-    parts: [{ text: text }],
-    timestamp: Date.now()
-  });
-
-  chatHistory.set(userId, history);
-
-  return text;
+    return responseText;
+  } catch (error) {
+    console.error("LLM Execution Error:", error);
+    return "Sorry, I am having trouble connecting to my brain right now.";
+  }
 };

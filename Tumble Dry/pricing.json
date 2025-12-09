@@ -1,0 +1,185 @@
+{
+    "categories": {
+        "Mens Wear": [
+            {
+                "item": "Shirt / T-shirt",
+                "dry_clean": "₹70 - ₹90",
+                "wash_iron": "₹40 - ₹50"
+            },
+            {
+                "item": "Trousers / Jeans",
+                "dry_clean": "₹80 - ₹100",
+                "wash_iron": "₹50 - ₹60"
+            },
+            {
+                "item": "Kurta (Plain)",
+                "dry_clean": "₹90 - ₹120",
+                "wash_iron": "₹60 - ₹70"
+            },
+            {
+                "item": "Kurta (Heavy/Designer)",
+                "dry_clean": "₹150 - ₹250",
+                "wash_iron": "N/A"
+            },
+            {
+                "item": "Pyjama",
+                "dry_clean": "₹50 - ₹70",
+                "wash_iron": "₹30 - ₹40"
+            },
+            {
+                "item": "Blazer / Coat",
+                "dry_clean": "₹200 - ₹250",
+                "wash_iron": "N/A"
+            },
+            {
+                "item": "Suit (2 Piece)",
+                "dry_clean": "₹300 - ₹400",
+                "wash_iron": "N/A"
+            },
+            {
+                "item": "Suit (3 Piece)",
+                "dry_clean": "₹400 - ₹550",
+                "wash_iron": "N/A""wash_iron": "₹80 - ₹100"
+            },
+            {
+                "item": "Saree (Silk/Heavy)",
+                "dry_clean": "₹250 - ₹450",
+                "wash_iron": "N/A"
+            },
+            {
+                "item": "Blouse",
+                "dry_clean": "₹50 - ₹80",
+                "wash_iron": "₹30 - ₹40"
+            },
+            {
+                "item": "Kurti / Top",
+                "dry_clean": "₹80 - ₹120",
+                "wash_iron": "₹50 - ₹60"
+            },
+            {
+                "item": "Salwar Kameez (Set)",
+                "dry_clean": "₹150 - ₹250",
+                "wash_iron": "₹80 - ₹100"
+            },
+            {
+                "item": "Lehenga (Plain)",
+                "dry_clean": "₹300 - ₹500",
+                "wash_iron": "N/A"
+            },
+            {
+                "item": "Lehenga (Bridal/Heavy)",
+                "dry_clean": "₹600 - ₹1500",
+                "wash_iron": "N/A"
+            },
+            {
+                "item": "Gown",
+                "dry_clean": "₹250 - ₹500",
+                "wash_iron": "N/A"
+            },
+            {
+                "item": "Dupatta / Scarf",
+                "dry_clean": "₹50 - ₹100",
+                "wash_iron": "₹30 - ₹50"
+            }
+        ],
+        "Household Items": [
+            {
+                "item": "Bedsheet (Single)",
+                "dry_clean": "₹100 - ₹150",
+                "wash_iron": "₹50 - ₹70"
+            },
+            {
+                "item": "Bedsheet (Double)",
+                "dry_clean": "₹150 - ₹200",
+                "wash_iron": "₹80 - ₹100"
+            },
+            {
+                "item": "Pillow Cover",
+                "dry_clean": "₹30 - ₹50",
+                "wash_iron": "₹20 - ₹30"
+            },
+            {
+                "item": "Blanket / Quilt (Single)",
+                "dry_clean": "₹250 - ₹350",
+                "wash_iron": "N/A"
+            },
+            {
+                "item": "Blanket / Quilt (Double)",
+                "dry_clean": "₹350 - ₹500",
+                "wash_iron": "N/A"
+            },
+            {
+                "item": "Curtain (per panel)",
+                "dry_clean": "₹100 - ₹200",
+                "wash_iron": "N/A"
+            },
+            {
+                "item": "Towel (Bath)",
+                "dry_clean": "₹60 - ₹80",
+                "wash_iron": "₹30 - ₹40"
+            }
+        ],
+        "Accessories & Others": [
+            {
+                "item": "Tie",
+                "dry_clean": "₹40 - ₹60",
+                "wash_iron": "N/A"
+            },
+            {
+                "item": "Cap / Hat",
+                "dry_clean": "₹50 - ₹100",
+                "wash_iron": "N/A"
+            },
+            {
+                "item": "Soft Toys (Small)",
+                "dry_clean": "₹100 - ₹200",
+                "wash_iron": "N/A"
+            },
+            {
+                "item": "Soft Toys (Large)",
+                "dry_clean": "₹250 - ₹500",
+                "wash_iron": "N/A"
+            }
+        ],
+        "Shoe & Bag Laundry": [
+            {
+                "item": "Sports Shoes",
+                "cleaning": "₹200 - ₹300"
+            },
+            {
+                "item": "Canvas / Casual Shoes",
+                "cleaning": "₹150 - ₹250"
+            },
+            {
+                "item": "Leather Shoes / Boots",
+                "cleaning": "₹250 - ₹400"
+            },
+            {
+                "item": "School Bag",
+                "cleaning": "₹150 - ₹250"
+            },
+            {
+                "item": "Handbag / Purse",
+                "cleaning": "₹200 - ₹500"
+            },
+            {
+                "item": "Trolley Bag (Small)",
+                "cleaning": "₹300 - ₹500"
+            },
+            {
+                "item": "Trolley Bag (Large)",
+                "cleaning": "₹500 - ₹800"
+            }
+        ]
+    },
+    "general_services": {
+        "Wash & Fold": "Starts from ₹79/kg (min 4kg)",
+        "Wash & Iron": "Starts from ₹119/kg (min 4kg)",
+        "Premium Laundry": "Starts from ₹199/kg"
+    },
+    "info": {
+        "pickup_delivery": "Free pickup and delivery available for orders above min value.",
+        "turnaround_time": "Standard: 24-48 hours. Express: 12-24 hours (Extra charges apply).",
+        "disclaimer": "Prices are indicative and may vary by city, fabric type, and specific store location. Please confirm exact rates with your local Tumbledry store."
+    }
+}

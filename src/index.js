@@ -18,7 +18,8 @@ app.post('/webhook', async (req, res) => {
     console.log(`Message from ${sender}: ${incomingMsg}`);
 
     try {
-        const responseText = await handleIncomingMessage(incomingMsg, sender);
+        const sheetUrl = process.env.CONFIG_SHEET_URL;
+        const responseText = await handleIncomingMessage(incomingMsg, sender, sheetUrl);
         await sendMessage(sender, responseText);
     } catch (error) {
         console.error('Error processing message:', error);
