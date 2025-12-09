@@ -116,13 +116,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
         dropZone.classList.remove('border-green-500');
         // Simple filtering for drop
-        const validExtensions = ['txt', 'csv', 'json'];
+        const validExtensions = ['txt', 'csv', 'json', 'pdf'];
         const dt = e.dataTransfer;
         const filtered = [];
         for (let i = 0; i < dt.files.length; i++) {
             const ext = dt.files[i].name.split('.').pop().toLowerCase();
             if (validExtensions.includes(ext)) filtered.push(dt.files[i]);
-            else alert("Skipped " + dt.files[i].name + ": Only TXT, CSV, JSON supported.");
+            else alert("Skipped " + dt.files[i].name + ": Only PDF, TXT, CSV, JSON supported.");
         }
         handleFiles(filtered);
     });

@@ -10,7 +10,9 @@ const chatHistory = new Map();
 const HISTORY_TIME_LIMIT_MS = 60 * 60 * 1000; // 1 hour
 const HISTORY_COUNT_LIMIT = 20;
 
-// Helper to fetch context (Handles Raw Text or JSON from Drive Bridge)
+import pdf from 'pdf-parse';
+
+// Helper to fetch context (Handles Raw Text, JSON, or PDF Base64)
 const fetchContextFromUrl = async (url) => {
   if (!url) return "";
   try {
@@ -19,15 +21,40 @@ const fetchContextFromUrl = async (url) => {
     if (!res.ok) throw new Error(`Context fetch failed: ${res.statusText}`);
 
     const contentType = res.headers.get("content-type");
+
+    // 1. JSON Response (New Bridge Format)
     if (contentType && contentType.includes("application/json")) {
       const json = await res.json();
-      return json.content || "Error: No content in Drive response.";
-    } else {
+
+      // Legacy or Simple Text
+      if (!json.file_objects) return json.content || "";
+
+      // New Rich Parsing (Text + PDF)
+      let combinedContent = "";
+      for (const file of json.file_objects) {
+        if (file.type === 'text') {
+          combinedContent += `\n\n--- SOURCE: ${file.name} ---\n${file.content}`;
+        }
+        else if (file.type === 'pdf') {
+          try {
+            const buffer = Buffer.from(file.content, 'base64');
+            const data = await pdf(buffer);
+            combinedContent += `\n\n--- SOURCE: ${file.name} (PDF) ---\n${data.text}`;
+          } catch (e) {
+            console.error(`Failed to parse PDF ${file.name}:`, e);
+            combinedContent += `\n\n--- SOURCE: ${file.name} (PDF) ---\n[Error parsing PDF]`;
+          }
+        }
+      }
+      return combinedContent || "No readable content found.";
+    }
+    // 2. Raw Text Response
+    else {
       return await res.text();
     }
   } catch (e) {
     console.warn("Context fetch warning (ignoring):", e.message);
-    return ""; // Return empty context so chat can continue comfortably
+    return "";
   }
 };
 
