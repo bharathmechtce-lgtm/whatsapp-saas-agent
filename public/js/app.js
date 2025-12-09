@@ -84,8 +84,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Initial Greeting
         setTimeout(() => {
-        };
-        reader.readAsDataURL(file);
+            appendMessage(`Welcome ${lead.name}! I am ready to help. Upload a file to get started.`, 'bot');
+        }, 800);
     }
 
     // 5. Chat Logic
