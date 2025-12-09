@@ -50,25 +50,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         try {
-            // Save to Sheet via Bridge
+            // Save to Sheet via Bridge (Fire and Forget logic, don't block user)
             if (BRIDGE_URL) {
-                await fetch(BRIDGE_URL, {
+                // We await to try and get 'success', but if it fails, we catch and proceed
+                const res = await fetch(BRIDGE_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({ cmd: 'save_lead', lead: lead })
                 });
             }
-
-            // Save Local & Unlock
-            localStorage.setItem('saas_lead_data', JSON.stringify(lead));
-            unlockSimulator(lead);
-
         } catch (error) {
-            console.error("Lead Save Failed", error);
-            alert("Connection Error. Please try again.");
-            subBtn.innerHTML = originalText;
-            subBtn.disabled = false;
+            console.warn("Lead Save Skipped/Failed (Offline Mode):", error);
+            // We do NOT stop the user. We let them in.
         }
+
+        // Save Local & Unlock ALWAYS
+        localStorage.setItem('saas_lead_data', JSON.stringify(lead));
+        unlockSimulator(lead);
     });
 
     function unlockSimulator(lead) {
