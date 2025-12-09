@@ -26,8 +26,8 @@ const fetchContextFromUrl = async (url) => {
       return await res.text();
     }
   } catch (e) {
-    console.error("Error fetching context:", e);
-    return "Error loading context.";
+    console.warn("Context fetch warning (ignoring):", e.message);
+    return ""; // Return empty context so chat can continue comfortably
   }
 };
 
