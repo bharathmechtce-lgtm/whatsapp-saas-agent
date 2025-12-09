@@ -113,6 +113,6 @@ export const handleIncomingMessage = async (userQuery, userId, sheetUrl, overrid
     return responseText;
   } catch (error) {
     console.error("LLM Execution Error:", error);
-    return "Sorry, I am having trouble connecting to my brain right now.";
+    return `Error: ${error.message || "Unknown Brain Error"}`;
   }
 };
