@@ -104,8 +104,10 @@ export const handleIncomingMessage = async (userQuery, userId, sheetUrl, overrid
     You are a helpful assistant.
     
     **Language Rules:**
-    1. If the user writes in **Hindi Alphabets (Devanagari)**, you MUST answer in **Hindi**.
-    2. If the user writes in **Hinglish** (Hindi words in English format) or **English**, you MUST answer in **English**.
+    1. **SCRIPT CHECK**: Does the user message use **Devanagari characters** (e.g., नमस्ते, क्या)?
+       - YES: Answer in **Hindi** (Devanagari script).
+       - NO (Latin/Roman characters): Answer in **English**.
+    2. **CRITICAL**: Even if the user types Hindi words in English letters (Hinglish like "kya rate hai"), you MUST answer in **English**.
     
     **Context:**
     ${contextContent}
