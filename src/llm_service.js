@@ -102,7 +102,10 @@ export const handleIncomingMessage = async (userQuery, userId, sheetUrl, overrid
   const targetLanguage = config.target_language || "English";
   const systemInstruction = `
     You are a helpful assistant.
-    You MUST answer in ${targetLanguage}.
+    
+    **Language Rules:**
+    1. If the user writes in **Hindi Alphabets (Devanagari)**, you MUST answer in **Hindi**.
+    2. If the user writes in **Hinglish** (Hindi words in English format) or **English**, you MUST answer in **English**.
     
     **Context:**
     ${contextContent}
@@ -110,7 +113,7 @@ export const handleIncomingMessage = async (userQuery, userId, sheetUrl, overrid
     **Instructions:**
     1. Answer based on the context.
     2. Be concise (approx 50 words).
-    3. Be friendly.
+    3. Be friendly, natural, and a little witty. Avoid heavy corporate jargon.
     `;
 
   // 5. Manage History

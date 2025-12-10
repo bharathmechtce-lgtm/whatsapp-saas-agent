@@ -9,7 +9,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 class GeminiAdapter {
     constructor(config) {
         this.apiKey = process.env.GOOGLE_API_KEY; // Still from Environment for security
-        this.modelName = config.model_name || "gemini-flash-lite-latest";
+        this.modelName = config.model_name || "gemini-1.5-flash";
         this.genAI = new GoogleGenerativeAI(this.apiKey);
     }
 
