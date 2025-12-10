@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Bot Instructor Mode</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/instructor.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+
+<body>
+    <div class="split-container">
+        <!-- LEFT PANEL: INSTRUCTOR -->
+        <div class="panel left-panel">
+            <div class="header">
+                <h2><span class="material-icons">school</span> Instructor</h2>
+                <div class="status-indicator">
+                    <span class="dot live" id="syncStatus"></span>
+                    <span class="status-text" id="syncText">Live</span>
+                </div>
+            </div>
+
+            <div class="controls-area">
+                <div class="card">
+                    <h3>Conversation Style</h3>
+                    <p class="helper-text">Tell the bot how to behave. Changes apply instantly.</p>
+                    <div class="chat-interface">
+                        <div id="instructorChat" class="chat-history">
+                            <!-- Helper messages go here -->
+                            <div class="msg system">Ready to update your bot's brain. Type instruction below.</div>
+                        </div>
+                        <div class="input-area">
+                            <input type="text" id="instructionInput"
+                                placeholder="e.g. 'Make it sarcastic' or 'Focus on dry cleaning'">
+                            <button id="send instructionBtn" onclick="sendInstruction()"><span
+                                    class="material-icons">send</span></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Manual Overrides</h3>
+                    <div class="control-row">
+                        <label>Brain Power</label>
+                        <select id="modelSelector" onchange="updateModel()">
+                            <option value="gemini-1.5-flash">Basic (Flash 1.5)</option>
+                            <option value="gemini-1.5-pro">Advanced (Pro 1.5)</option>
+                        </select>
+                    </div>
+                    <div class="control-row">
+                        <label>Upload Knowledge</label>
+                        <div class="upload-zone" id="dropZone">
+                            <span class="material-icons">cloud_upload</span>
+                            <span>Drag PDF/TXT here</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: SIMULATOR -->
+        <div class="panel right-panel">
+            <iframe src="/" id="simulatorFrame" title="WhatsApp Simulator"></iframe>
+        </div>
+    </div>
+
+    <script src="js/instructor.js"></script>
+</body>
+
+</html>

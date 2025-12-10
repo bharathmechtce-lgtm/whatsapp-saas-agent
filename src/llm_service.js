@@ -99,8 +99,18 @@ export const handleIncomingMessage = async (userQuery, userId, sheetUrl, overrid
   console.log("------------------------------------------------");
 
   // 4. Prepare System Instruction
-  const targetLanguage = config.target_language || "English";
-  const systemInstruction = `
+  // 4. Prepare System Instruction
+  let systemInstruction = "";
+
+  // PRIORITY 1: Dynamic Override from Sheet (The "Instructor Mode" Data)
+  if (config.system_instruction_override && config.system_instruction_override.length > 5) {
+    systemInstruction = config.system_instruction_override;
+    systemInstruction += `\n\n**Context:**\n${contextContent}`;
+    console.log("[System] Using Override from Sheet");
+  }
+  // PRIORITY 2: Default Hardcoded Logic (Script Detection)
+  else {
+    systemInstruction = `
     You are a helpful assistant.
     
     **Language Rules:**
@@ -117,30 +127,44 @@ export const handleIncomingMessage = async (userQuery, userId, sheetUrl, overrid
     2. Be concise (approx 50 words).
     3. Be friendly, natural, and a little witty. Avoid heavy corporate jargon.
     `;
-
-  // 5. Manage History
-  let history = chatHistory.get(userId) || [];
-  const now = Date.now();
-  const lastMsg = history[history.length - 1];
-  const isSessionActive = lastMsg && (now - lastMsg.timestamp < HISTORY_TIME_LIMIT_MS);
-
-  if (isSessionActive) {
-    history = history.filter(msg => (now - msg.timestamp) < HISTORY_TIME_LIMIT_MS);
-    if (history.length > HISTORY_COUNT_LIMIT) history = history.slice(history.length - HISTORY_COUNT_LIMIT);
-  } else {
-    const FALLBACK_COUNT_LIMIT = 5;
-    if (history.length > FALLBACK_COUNT_LIMIT) history = history.slice(history.length - FALLBACK_COUNT_LIMIT);
   }
+
+  // 5. Manage Chat History (Sliding Window)
+  if (!history[userId]) history[userId] = [];
+
+  // Add User Message with Timestamp
+  // NOTE: We do NOT filter before adding the new message, to ensure context is fresh.
+
+  // SLIDING WINDOW FILTER:
+  // Rule: Keep last 1 hour OR last 10 messages (whichever keeps MORE).
+  const ONE_HOUR = 60 * 60 * 1000;
+  const now = Date.now();
+
+  // Filter for time (Keep if < 1h old)
+  const recentHistory = history[userId].filter(msg => (now - (msg.timestamp || 0)) < ONE_HOUR);
+
+  // But ensure practically at least 10 messages (even if old)
+  let activeHistory = recentHistory;
+  if (activeHistory.length < 10 && history[userId].length >= 10) {
+    // If time filter left us with too few, grab the last 10 raw
+    activeHistory = history[userId].slice(-10);
+  }
+
+  // Construct Chat (Gemini Format)
+  // We map cleanly to { role, parts } removing timestamp
+  const chatHistory = activeHistory.map(h => ({ role: h.role, parts: h.parts }));
 
   // 6. Execute (The Factory)
   try {
     const llmAdapter = createLLMAdapter(config);
-    const responseText = await llmAdapter.sendMessage(history, userQuery, systemInstruction);
+    const responseText = await llmAdapter.sendMessage(chatHistory, userQuery, systemInstruction);
 
-    // Update History
-    history.push({ role: "user", parts: [{ text: userQuery }], timestamp: now });
-    history.push({ role: "model", parts: [{ text: responseText }], timestamp: Date.now() });
-    chatHistory.set(userId, history);
+    // Update History (Add current interaction)
+    history[userId].push({ role: "user", parts: [{ text: userQuery }], timestamp: now });
+    history[userId].push({ role: "model", parts: [{ text: responseText }], timestamp: Date.now() });
+
+    // Save back to memory (pruning old old stuff to prevent memory leaks? Optional for now)
+    // We let the history grow in RAM but only SEND the activeHistory to LLM.
 
     return responseText;
   } catch (error) {

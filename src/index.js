@@ -3,6 +3,7 @@ import bodyParser from 'body-parser';
 import { fetchConfigFromSheet } from './sheet_config.js';
 import dotenv from 'dotenv';
 import { handleIncomingMessage } from './llm_service.js';
+import { handleInstructorChat } from './instructor_service.js';
 import { sendMessage } from './twilio_service.js';
 
 dotenv.config();
@@ -51,6 +52,18 @@ app.post('/api/chat', async (req, res) => {
     } catch (e) {
         console.error("Web Chat Error:", e);
         res.status(500).json({ error: "Brain Malfunction" });
+    }
+});
+
+/**
+ * INSTRUCTOR API: Handle meta-instructions
+ */
+app.post('/api/instructor/chat', async (req, res) => {
+    try {
+        const result = await handleInstructorChat(req.body.instruction);
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
